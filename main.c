@@ -21,11 +21,14 @@ int main()
     Vector2 r_pos = {100, 100};
     Vector2 s_pos = {300, 300};
 
-    float r_radius = sqrtf(rock.width*rock.width + rock.height*rock.height) / 2;
-    float s_radius = sqrtf(ship.width*ship.width + ship.height*ship.height) / 2;
+
+    float r_radius = rock.width / 1.7;
+    float s_radius = ship.width / 1.7;
 
     Vector2 r_center = {r_pos.x+rock.width/2, r_pos.y+rock.height/2};
     Vector2 s_center = {s_pos.x+ship.width/2, s_pos.y+ship.height/2};
+
+    Rectangle r_rect = {r_pos.x, r_pos.y, rock.width, rock.height};
 
     int show = 0;
     Vector2 mouse_pos;
@@ -34,6 +37,7 @@ int main()
         BeginDrawing();
         HideCursor();
         ClearBackground(BLACK);
+        Rectangle s_rect = {s_pos.x, s_pos.y, ship.width, ship.height};
 
         // update ship position to follow the mouse
         mouse_pos = GetMousePosition();
@@ -42,31 +46,31 @@ int main()
 
         DrawTexture(r_tex, r_pos.x, r_pos.y, WHITE);
         DrawTexture(s_tex, s_pos.x, s_pos.y, WHITE);
-        // DrawCircle(c_point.x, c_point.y, d, GREEN);
 
         if (CheckCollisionCircles(r_center, r_radius, s_center, s_radius)) {
-            int start_x = (int)fmax(r_pos.x, s_pos.x);
-            int end_x = (int)fmin(r_pos.x+rock.width, s_pos.x+ship.width);
-            int start_y = (int)fmax(r_pos.y, s_pos.y);
-            int end_y = (int)fmin(r_pos.y+rock.height, s_pos.y+ship.height);
-
             int collision_found = 0;
+            DrawText("1st Check", 10, 10, 20, ORANGE);
 
-            for (int y = start_y; y < end_y && !collision_found; y++) {
-                for (int x = start_x; x < end_x && !collision_found; x++) {
-                    // convert world coordinates to local image coordinates
-                    int r_local_x = x - (int)r_pos.x;
-                    int r_local_y = y - (int)r_pos.y;
-                    int s_local_x = x - (int)s_pos.x;
-                    int s_local_y = y - (int)s_pos.y;
+            // Pixel-perfect collision check: Loop over all pixels in the images
+            for (int y = 0; y < rock.height && !collision_found; y++) {
+                for (int x = 0; x < rock.width && !collision_found; x++) {
+                    // convert to local image coordinates
+                    int r_local_x = x;
+                    int r_local_y = y;
+                    int s_local_x = (x + (int)(r_pos.x - s_pos.x));
+                    int s_local_y = (y + (int)(r_pos.y - s_pos.y));
 
-                    // get colors from both images
-                    Color r_pixel = r_pix[r_local_y*rock.width + r_local_x];
-                    Color s_pixel = s_pix[s_local_y*ship.width + s_local_x];
+                    // Ensure we don't check outside of the ship image bounds
+                    if (s_local_x >= 0 && s_local_y >= 0 && s_local_x < ship.width && s_local_y < ship.height) {
+                        // Get colors from both images
+                        Color r_pixel = r_pix[r_local_y * rock.width + r_local_x];
+                        Color s_pixel = s_pix[s_local_y * ship.width + s_local_x];
 
-                    if (r_pixel.a > 0 && s_pixel.a > 0) {
-                        collision_found = 1;
-                        DrawText("Collision!", 10, 10, 40, RED);
+                        // Check for non-transparent pixels
+                        if (r_pixel.a > 0 && s_pixel.a > 0) {
+                            collision_found = 1;
+                            DrawText("Collision!", 10, 40, 20, RED);
+                        }
                     }
                 }
             }
@@ -78,6 +82,9 @@ int main()
         if (show) {
             DrawCircleLines(r_center.x, r_center.y, r_radius, ORANGE);
             DrawCircleLines(s_center.x, s_center.y, s_radius, ORANGE);
+
+            // DrawRectangleLinesEx(r_rect, 1.0f, GREEN);
+            // DrawRectangleLinesEx(s_rect, 1.0f, GREEN);
         }
         
         EndDrawing();
@@ -93,4 +100,5 @@ int main()
     CloseWindow();
 
     return 0;
+
 }
