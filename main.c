@@ -21,7 +21,6 @@ int main()
     Vector2 r_pos = {100, 100};
     Vector2 s_pos = {300, 300};
 
-
     float r_radius = rock.width / 1.7;
     float s_radius = ship.width / 1.7;
 
@@ -37,7 +36,6 @@ int main()
         BeginDrawing();
         HideCursor();
         ClearBackground(BLACK);
-        Rectangle s_rect = {s_pos.x, s_pos.y, ship.width, ship.height};
 
         // update ship position to follow the mouse
         mouse_pos = GetMousePosition();
@@ -80,11 +78,16 @@ int main()
             show = !show;
 
         if (show) {
+            Rectangle s_rect = {s_pos.x, s_pos.y, ship.width, ship.height};
+
             DrawCircleLines(r_center.x, r_center.y, r_radius, ORANGE);
             DrawCircleLines(s_center.x, s_center.y, s_radius, ORANGE);
 
             // DrawRectangleLinesEx(r_rect, 1.0f, GREEN);
             // DrawRectangleLinesEx(s_rect, 1.0f, GREEN);
+
+            // DrawCircle(r_pos.x, r_pos.y, 3.0f, RED);
+            // DrawCircle(s_pos.x, s_pos.y, 3.0f, RED);
         }
         
         EndDrawing();

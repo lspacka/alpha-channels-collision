@@ -1,0 +1,318 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat{\fonttbl{\f0\fnil\fcharset0 Calibri;}{\f1\fnil\fcharset1 Cambria Math;}{\f2\fnil\fcharset0 Cambria Math;}}
+{\*\generator Riched20 10.0.19041}{\*\mmathPr\mmathFont1\mwrapIndent1440 }\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\f0\fs22\lang10 Let's break down this part of the code in detail, step by step.\par
+\par
+### 1. **Bounding Circle Collision Check**\par
+```c\par
+if (CheckCollisionCircles(r_center, r_radius, s_center, s_radius)) \{\par
+```\par
+- This checks if the two bounding circles (one around the "rock" and one around the "ship") overlap.\par
+- **`r_center`** and **`r_radius`** refer to the center and radius of the rock's bounding circle.\par
+- **`s_center`** and **`s_radius`** refer to the center and radius of the ship's bounding circle.\par
+- This is a quick broad-phase collision detection. If the circles don't overlap, there's no need to check for pixel-perfect collisions.\par
+\par
+### 2. **Determine Overlapping Area of Bounding Boxes**\par
+```c\par
+int start_x = (int)fmax(r_pos.x, s_pos.x);\par
+int end_x = (int)fmin(r_pos.x + rock.width, s_pos.x + ship.width);\par
+int start_y = (int)fmax(r_pos.y, s_pos.y);\par
+int end_y = (int)fmin(r_pos.y + rock.height, s_pos.y + ship.height);\par
+```\par
+- This section finds the overlapping area between the **bounding rectangles** of the two images. Even though we're using circles for broad-phase detection, we use rectangles here to narrow down the specific pixel area we need to check.\par
+  \par
+- **`start_x` and `start_y`**: \par
+   - These define the top-left corner of the overlapping region. \par
+   - **`fmax(r_pos.x, s_pos.x)`** chooses the greater of the two x-positions (either the rock's or the ship's), because the overlapping area starts where both rectangles meet.\par
+  \par
+- **`end_x` and `end_y`**: \par
+   - These define the bottom-right corner of the overlapping region. \par
+   - **`fmin(r_pos.x + rock.width, s_pos.x + ship.width)`** chooses the smaller value to make sure the overlapping area doesn\rquote t extend beyond either image's right or bottom edge.\par
+   \par
+- Essentially, this creates a bounding rectangle for the overlapping region, which ensures that the pixel-perfect collision check only happens within the shared space between the two images.\par
+\par
+### 3. **Pixel-Perfect Collision Check**\par
+```c\par
+int collision_found = 0;\par
+\par
+for (int y = start_y; y < end_y && !collision_found; y++) \{\par
+    for (int x = start_x; x < end_x && !collision_found; x++) \{\par
+```\par
+- This **nested loop** iterates over the pixels in the overlapping area, from the top-left corner (`start_x`, `start_y`) to the bottom-right corner (`end_x`, `end_y`).\par
+  \par
+- **`collision_found`** is a flag. Once a collision is detected, it breaks out of both loops. It saves processing time by not checking unnecessary pixels after detecting a collision.\par
+\par
+### 4. **Convert World Coordinates to Local Image Coordinates**\par
+```c\par
+int r_local_x = x - (int)r_pos.x;\par
+int r_local_y = y - (int)r_pos.y;\par
+int s_local_x = x - (int)s_pos.x;\par
+int s_local_y = y - (int)s_pos.y;\par
+```\par
+- **`x` and `y`** represent the current pixel in **world coordinates** (i.e., screen space).\par
+  \par
+- To access the pixels within the image, we need to convert these world coordinates into **local coordinates** relative to each image:\par
+   - For the **rock**, the local x-coordinate is: `x - r_pos.x` (where `r_pos.x` is the x-position of the rock on the screen).\par
+   - For the **ship**, the local x-coordinate is: `x - s_pos.x` (where `s_pos.x` is the x-position of the ship on the screen).\par
+   - The same logic applies to the y-coordinates.\par
+\par
+- These local coordinates allow us to access the correct pixels within the image for collision checking.\par
+\par
+### 5. **Check Alpha Channels of Pixels**\par
+u```c\par
+Color r_pixel = r_pix[r_local_y * rock.width + r_local_x];\par
+Color s_pixel = s_pix[s_local_y * ship.width + s_local_x];\par
+\par
+if (r_pixel.a > 0 && s_pixel.a > 0) \{\par
+```\par
+- Now that we have the local coordinates, we use them to access the **alpha channels** of the corresponding pixels in each image:\par
+   - **`r_pix[r_local_y * rock.width + r_local_x]`** gets the pixel color of the rock at `(r_local_x, r_local_y)`. We calculate the index by multiplying the y-coordinate by the width of the image and adding the x-coordinate (2D to 1D array conversion).\par
+   - Similarly, **`s_pix[s_local_y * ship.width + s_local_x]`** gets the pixel color of the ship at `(s_local_x, s_local_y)`.\par
+\par
+- **`r_pixel.a > 0`** and **`s_pixel.a > 0`** checks if both pixels are non-transparent. \par
+   - If both pixels have an alpha value greater than 0, it means they are both visible and overlapping at this point, indicating a collision.\par
+\par
+### 6. **Collision Detected**\par
+```c\par
+collision_found = 1;\par
+DrawText("Collision!", 10, 10, 40, RED);\par
+```\par
+- When a collision is detected, **`collision_found = 1`** is set, which breaks out of both loops, and the text "Collision!" is displayed on the screen to indicate the collision.\par
+\par
+### Conclusion:\par
+1. **Bounding circles** are used for the initial broad-phase collision check.\par
+2. If the circles overlap, we calculate the overlapping area between the bounding rectangles of the two images.\par
+3. Then, we **loop through each pixel** in the overlapping area, converting world coordinates to local image coordinates to check the alpha channel of each pixel.\par
+4. If both pixels have non-transparent alpha values, a **pixel-perfect collision** is detected.\par
+\b ////////////////////////////////////////////////////////////////////////////////////////////////\par
+\b0 Let's break down this specific line in more detail:\par
+\par
+```c\par
+Color r_pixel = r_pix[r_local_y * rock.width + r_local_x];\par
+```\par
+\par
+This line retrieves a specific pixel from the `r_pix` array, which contains the pixel data of the image `rock1.png`.\par
+\par
+### Here's what's happening step by step:\par
+\par
+1. **Image as a 2D Array:**\par
+   - An image is made up of pixels, and you can think of it as a **2D grid** where each point on the grid is a pixel.\par
+   - The pixel at position `(0,0)` is in the top-left corner, `(width-1, height-1)` is in the bottom-right corner.\par
+\par
+2. **Flattening 2D Coordinates into 1D Array:**\par
+   - In computer memory, images are often stored as **1D arrays**, even though conceptually they are 2D (a grid of pixels).\par
+   - In a 1D array, each row of the image follows the previous one. To access a specific pixel at `(x, y)` in the 1D array, you calculate its index as:\par
+     ```c\par
+     index = y * width + x\par
+     ```\par
+     where:\par
+     - **`y`** is the row number (which represents how far down you are in the image).\par
+     - **`width`** is the total number of pixels in each row.\par
+     - **`x`** is the column number within that row (which represents how far right you are).\par
+\par
+3. **Accessing the Right Pixel:**\par
+   - In the line `r_pix[r_local_y * rock.width + r_local_x]`, you're doing the following:\par
+     - **`r_pix`** is an array of `Color` structures, where each element represents a pixel in the image.\par
+     - **`r_local_y * rock.width + r_local_x`** calculates the correct index in the 1D array corresponding to the pixel at `(r_local_x, r_local_y)` in the image.\par
+\par
+   Let's say the image is 100 pixels wide (`rock.width = 100`):\par
+   - If `r_local_x = 5` and `r_local_y = 10`, you are accessing the pixel at the 6th column of the 11th row.\par
+   - The index in the 1D array would be:\par
+     ```c\par
+     index = 10 * 100 + 5 = 1005\par
+     ```\par
+   - So, `r_pix[1005]` will give you the pixel color at `(5, 10)`.\par
+\par
+4. **Why This Matters for Collision Detection:**\par
+   - In pixel-perfect collision detection, you need to check if a specific pixel in the image is transparent or not. The alpha channel (`a` in `r_pixel.a`) tells you whether a pixel is visible or fully/partially transparent.\par
+   - This line gets the color of the pixel at the local position `(r_local_x, r_local_y)` and allows you to check its alpha value (`r_pixel.a`).\par
+\par
+### Summary:\par
+- `r_pix` is a 1D array representing the pixel data of the image.\par
+- To access a specific pixel at `(x, y)` in the image, you use the formula `y * width + x` to calculate the corresponding index in the array.\par
+- This allows you to retrieve the pixel's color and inspect properties like its alpha channel, which is critical for pixel-perfect collision detection.\par
+////////////////////////////////////////////////////////////////////////////////////////////////\par
+You're close! The **RGBA** values represent the four components of **each pixel**, but when you're working with a **1D array** of pixels, each element of that array corresponds to a single pixel as a whole (containing its RGBA values as a `Color` structure or equivalent). So let\rquote s clarify the key points:\par
+\par
+1. **One Pixel = One `Color` Struct**:\par
+   - Each pixel in the image is represented by a `Color` structure, which contains **four values**: red (`r`), green (`g`), blue (`b`), and alpha (`a`).\par
+   - The `Color` structure holds these values together for each pixel.\par
+\par
+2. **The Array Holds Pixels, Not Raw RGBA Values**:\par
+   - The array `r_pix` in your code doesn't hold raw RGBA values directly. Instead, it holds **one `Color` struct for each pixel**. So, each element in the array represents one pixel, and that pixel has four values (RGBA).\par
+   - For example, `r_pix[1005]` would refer to **the 1006th pixel** in the image, and that single element contains its RGBA values (inside a `Color` structure).\par
+\par
+3. **In Your Example (100 Pixels Wide)**:\par
+   - For an image that is 100 pixels wide, you have 100 pixels per row.\par
+   - The array size in terms of **pixels** is `width * height`, which would give you the number of `Color` elements (or pixels).\par
+   - Each **pixel** is a single element in that array and contains 4 components (RGBA).\par
+\par
+### To clarify further:\par
+- If your image is **100 pixels wide**, and let\rquote s assume the image is 100 pixels tall as well, then you have a total of **10,000 pixels** in the image.\par
+- The `r_pix` array would have **10,000 elements**, and each element represents one pixel.\par
+\par
+Each element in `r_pix` gives you a `Color` structure like this:\par
+```c\par
+Color r_pixel = r_pix[index];\par
+```\par
+\par
+Where `r_pixel.r`, `r_pixel.g`, `r_pixel.b`, and `r_pixel.a` are the RGBA values for **that single pixel**.\par
+\par
+So, if you have a **row of 100 pixels**, there are **100 elements** in the `r_pix` array for that row, **not 400**. But each of those 100 elements (pixels) internally has 4 RGBA values.\par
+\par
+### To summarize:\par
+- **100 pixels in a row** means **100 `Color` structs** in the array.\par
+- Each `Color` struct has **4 values (RGBA)**, but in the array, it's stored as a single `Color` per pixel.\par
+////////////////////////////////////////////////////////////////////////////////////////////////\par
+Purpose of This Block\par
+\par
+This code is trying to perform pixel-perfect collision detection between two images (e.g., a "rock" and a "ship").\par
+\par
+First, a bounding circle collision check confirms that the two objects (images) are likely to be colliding, but since bounding circles aren\rquote t very precise, we need to narrow it down and check pixel-by-pixel. This block calculates the overlap between the two objects and checks each pixel in the overlapping area to see if both objects have non-transparent pixels at the same spot (i.e., both pixels have alpha > 0).\par
+Breakdown of Each Line\par
+\par
+    Define the Overlap Area:\par
+\par
+    c\par
+\par
+    int start_x = (int)fmax(r_pos.x, s_pos.x);\par
+    int end_x = (int)fmin(r_pos.x + rock.width, s_pos.x + ship.width);\par
+    int start_y = (int)fmax(r_pos.y, s_pos.y);\par
+    int end_y = (int)fmin(r_pos.y + rock.height, s_pos.y + ship.height);\par
+\par
+        r_pos.x and r_pos.y: These are the x and y coordinates of the top-left corner of the rock image.\par
+        s_pos.x and s_pos.y: These are the x and y coordinates of the top-left corner of the ship image.\par
+        rock.width and ship.width: The widths of the two images.\par
+        rock.height and ship.height: The heights of the two images.\par
+\par
+    The goal here is to find the rectangular overlapping region between the two images.\par
+        start_x: The larger (maximum) value between r_pos.x (rock\rquote s left edge) and s_pos.x (ship\rquote s left edge). This ensures that we start checking pixels from the first common x-coordinate.\par
+        end_x: The smaller (minimum) value between r_pos.x + rock.width (rock\rquote s right edge) and s_pos.x + ship.width (ship\rquote s right edge). This is the x-coordinate where both images stop overlapping.\par
+        start_y and end_y: The same logic is applied for the y-coordinates to find the vertical overlap.\par
+\par
+    This calculation ensures that the loops below will only check the overlapping region of the two images, optimizing the pixel-perfect check.\par
+\par
+Example of Overlap Calculation\par
+\par
+Let\rquote s say:\par
+\par
+    r_pos.x = 100, rock.width = 50 \f1\u8594?\f0  the rock spans from 100 to 150 on the x-axis.\par
+    s_pos.x = 120, ship.width = 40 \f1\u8594?\f0  the ship spans from 120 to 160 on the x-axis.\par
+\par
+The overlapping region on the x-axis would start at 120 (max of 100 and 120) and end at 150 (min of 150 and 160).\par
+\par
+So, start_x = 120 and end_x = 150. This tells us the x-values where the images overlap.\par
+\par
+    Check Pixel by Pixel in the Overlapping Region:\par
+\par
+    c\par
+\par
+int collision_found = 0;\par
+\par
+for (int y = start_y; y < end_y && !collision_found; y++) \{\par
+    for (int x = start_x; x < end_x && !collision_found; x++) \{\par
+\par
+    This nested loop iterates over the pixels in the overlapping region between start_x and end_x (for x-axis) and start_y and end_y (for y-axis).\par
+    collision_found is used to stop checking pixels if a collision is detected early on.\par
+    For each pixel in this area, the next step is to convert the global (world) coordinates of the pixel into the local coordinates of each image, and check their alpha values.\par
+\par
+Convert World Coordinates to Local Image Coordinates:\par
+\par
+c\par
+\par
+int r_local_x = x - (int)r_pos.x;\par
+int r_local_y = y - (int)r_pos.y;\par
+int s_local_x = x - (int)s_pos.x;\par
+int s_local_y = y - (int)s_pos.y;\par
+\par
+    x and y: These are the world coordinates of the current pixel being checked (from the loops).\par
+    r_local_x and r_local_y: These convert the world coordinates into the rock image\rquote s local coordinates.\par
+        For example, if r_pos.x = 100 and x = 120, then r_local_x = 120 - 100 = 20. This means the pixel being checked is the 20th pixel of the rock image.\par
+    s_local_x and s_local_y: Similarly, these convert the world coordinates into the ship image\rquote s local coordinates.\par
+\par
+This conversion is necessary because the pixel arrays (r_pix and s_pix) are indexed using the local coordinates of the images, not the world coordinates.\par
+\par
+Accessing the Pixel Colors:\par
+\par
+After converting the world coordinates to local coordinates, you can access the corresponding pixel color from each image using the formula:\par
+\par
+c\par
+\par
+    Color r_pixel = r_pix[r_local_y * rock.width + r_local_x];\par
+    Color s_pixel = s_pix[s_local_y * ship.width + s_local_x];\par
+\par
+    This retrieves the Color struct for each pixel from the rock and ship images based on their local coordinates, as explained earlier.\par
+\par
+    The goal is to check whether both pixels are non-transparent (i.e., both alpha values are greater than 0). If they are, a pixel-perfect collision is detected.\par
+\par
+Summary of Logic:\par
+\par
+    start_x, end_x, start_y, end_y: These define the rectangular region where the two images overlap.\par
+    For loops: These loops check every pixel in the overlapping area.\par
+    World-to-local conversion: For each pixel in the overlapping area, the world coordinates are converted into the local coordinates of both images.\par
+    Pixel comparison: The alpha channel (a) of each pixel is checked to see if there\rquote s a collision (both alpha values are greater than 0).\par
+\par
+This part of the code is the core of the pixel-perfect collision detection: after determining that the bounding circles overlap, it checks pixel-by-pixel to see if there\rquote s a real collision between the visible (non-transparent) parts of both images.\par
+////////////////////////////////////////////////////////////////////////////////////////////////\par
+Great\f2 ! \f0 Let\rquote s\f2  \f0 break\f2  \f0 down\f2  \f0 this\f2  \f0 bit\f2  \f0 of\f2  \f0 code\f2 :\f0\par
+\par
+c\par
+\par
+int\f2  \f0 r\f2 _\f0 local\f2 _\f0 x\f2  = \f0 x\f2 ;\f0\par
+int\f2  \f0 r\f2 _\f0 local\f2 _\f0 y\f2  = \f0 y\f2 ;\f0\par
+int\f2  \f0 s\f2 _\f0 local\f2 _\f0 x\f2  = (\f0 x\f2  + (\f0 int\f2 )(\f0 r\f2 _\f0 pos\f2 .\f0 x\f2  - \f0 s\f2 _\f0 pos\f2 .\f0 x\f2 ));\f0\par
+int\f2  \f0 s\f2 _\f0 local\f2 _\f0 y\f2  = (\f0 y\f2  + (\f0 int\f2 )(\f0 r\f2 _\f0 pos\f2 .\f0 y\f2  - \f0 s\f2 _\f0 pos\f2 .\f0 y\f2 ));\f0\par
+\par
+What\f2  \f0 Is\f2  \f0 Happening\f2 :\f0\par
+\par
+\f2     \f0 r\f2 _\f0 local\f2 _\f0 x\f2  \f0 and\f2  \f0 r\f2 _\f0 local\f2 _\f0 y\f2  \f0 are\f2  \f0 the\f2  \f0 coordinates\f2  \f0 for\f2  \f0 the\f2  \f0 current\f2  \f0 pixel\f2  \f0 of\f2  \f0 the\f2  \f0 rock\f2  \f0 image\f2  (\f0 in\f2  \f0 its\f2  \f0 local\f2  \f0 image\f2  \f0 space\f2 ).\f0\par
+\f2     \f0 s\f2 _\f0 local\f2 _\f0 x\f2  \f0 and\f2  \f0 s\f2 _\f0 local\f2 _\f0 y\f2  \f0 are\f2  \f0 the\f2  \f0 corresponding\f2  \f0 pixel\f2  \f0 coordinates\f2  \f0 in\f2  \f0 the\f2  \f0 ship\f2  \f0 image\f2  (\f0 also\f2  \f0 in\f2  \f0 its\f2  \f0 local\f2  \f0 image\f2  \f0 space\f2 ), \f0 but\f2  \f0 we\f2  \f0 calculate\f2  \f0 them\f2  \f0 relative\f2  \f0 to\f2  \f0 the\f2  \f0 ship\rquote s\f2  \f0 position\f2 .\f0\par
+\par
+Detailed\f2  \f0 Breakdown\f2 :\f0\par
+\par
+\f2     \f0 r\f2 _\f0 local\f2 _\f0 x\f2  = \f0 x\f2 ; \f0 and\f2  \f0 r\f2 _\f0 local\f2 _\f0 y\f2  = \f0 y\f2 ;\f0\par
+\f2         \f0 These\f2  \f0 two\f2  \f0 lines\f2  \f0 simply\f2  \f0 store\f2  \f0 the\f2  \f0 current\f2  \f0 x\f2  \f0 and\f2  \f0 y\f2  \f0 pixel\f2  \f0 coordinates\f2  \f0 for\f2  \f0 the\f2  \f0 rock\f2  \f0 image\f2  (\f0 we\f2  \f0 are\f2  \f0 looping\f2  \f0 through\f2  \f0 every\f2  \f0 pixel\f2  \f0 of\f2  \f0 the\f2  \f0 rock\f2 ).\f0\par
+\f2         \f0 x\f2  \f0 and\f2  \f0 y\f2  \f0 refer\f2  \f0 to\f2  \f0 the\f2  \f0 current\f2  \f0 pixel\f2  \f0 being\f2  \f0 checked\f2  \f0 in\f2  \f0 the\f2  \f0 rock\f2  \f0 image\f2 , \f0 starting\f2  \f0 from\f2  \f0 the\f2  \f0 top\f2 -\f0 left\f2  \f0 corner\f2  (\f0 0\f2 , \f0 0\f2 ) \f0 and\f2  \f0 moving\f2  \f0 down\f2  \f0 across\f2  \f0 the\f2  \f0 image\f2 .\f0\par
+\f2         \f0 So\f2 , \f0 r\f2 _\f0 local\f2 _\f0 x\f2  \f0 and\f2  \f0 r\f2 _\f0 local\f2 _\f0 y\f2  \f0 are\f2  \f0 the\f2  \f0 pixel\f2  \f0 coordinates\f2  \f0 in\f2  \f0 the\f2  \f0 rock's\f2  \f0 local\f2  \f0 space\f2  (\f0 i\f2 .\f0 e\f2 ., \f0 within\f2  \f0 the\f2  \f0 image\f2  \f0 itself\f2 , \f0 ignoring\f2  \f0 where\f2  \f0 the\f2  \f0 rock\f2  \f0 is\f2  \f0 drawn\f2  \f0 on\f2  \f0 the\f2  \f0 screen\f2 ).\f0\par
+\par
+\f2     \f0 s\f2 _\f0 local\f2 _\f0 x\f2  = (\f0 x\f2  + (\f0 int\f2 )(\f0 r\f2 _\f0 pos\f2 .\f0 x\f2  - \f0 s\f2 _\f0 pos\f2 .\f0 x\f2 ));\f0\par
+\f2         \f0 This\f2  \f0 calculates\f2  \f0 the\f2  \f0 corresponding\f2  \f0 pixel\f2  \f0 in\f2  \f0 the\f2  \f0 ship\f2  \f0 image\f2  \f0 that\f2  \f0 aligns\f2  \f0 with\f2  \f0 the\f2  \f0 rock\rquote s\f2  \f0 current\f2  \f0 pixel\f2 .\f0\par
+\f2         \f0 The\f2  \f0 term\f2  (\f0 r\f2 _\f0 pos\f2 .\f0 x\f2  - \f0 s\f2 _\f0 pos\f2 .\f0 x\f2 ) \f0 represents\f2  \f0 the\f2  \f0 difference\f2  \f0 in\f2  \f0 positions\f2  \f0 between\f2  \f0 the\f2  \f0 top\f2 -\f0 left\f2  \f0 corners\f2  \f0 of\f2  \f0 the\f2  \f0 rock\f2  \f0 and\f2  \f0 ship\f2 .\f0\par
+\f2         \f0 By\f2  \f0 adding\f2  \f0 this\f2  \f0 difference\f2  \f0 to\f2  \f0 x\f2 , \f0 we\f2  \f0 find\f2  \f0 the\f2  \f0 x\f2  \f0 coordinate\f2  \f0 in\f2  \f0 the\f2  \f0 ship's\f2  \f0 image\f2  \f0 that\f2  \f0 corresponds\f2  \f0 to\f2  \f0 the\f2  \f0 current\f2  \f0 x\f2  \f0 pixel\f2  \f0 in\f2  \f0 the\f2  \f0 rock\f2  \f0 image\f2 .\f0\par
+\f2             \f0 If\f2  \f0 the\f2  \f0 ship\f2  \f0 is\f2  \f0 further\f2  \f0 to\f2  \f0 the\f2  \f0 left\f2  \f0 than\f2  \f0 the\f2  \f0 rock\f2 , \f0 this\f2  \f0 value\f2  \f0 would\f2  \f0 be\f2  \f0 negative\f2  (\f0 meaning\f2  \f0 some\f2  \f0 rock\f2  \f0 pixels\f2  \f0 might\f2  \f0 not\f2  \f0 have\f2  \f0 corresponding\f2  \f0 ship\f2  \f0 pixels\f2 ).\f0\par
+\f2             \f0 If\f2  \f0 the\f2  \f0 ship\f2  \f0 is\f2  \f0 further\f2  \f0 to\f2  \f0 the\f2  \f0 right\f2 , \f0 this\f2  \f0 value\f2  \f0 will\f2  \f0 be\f2  \f0 positive\f2 .\f0\par
+\par
+\f2     \f0 s\f2 _\f0 local\f2 _\f0 y\f2  = (\f0 y\f2  + (\f0 int\f2 )(\f0 r\f2 _\f0 pos\f2 .\f0 y\f2  - \f0 s\f2 _\f0 pos\f2 .\f0 y\f2 ));\f0\par
+\f2         \f0 Similarly\f2 , \f0 this\f2  \f0 calculates\f2  \f0 the\f2  \f0 corresponding\f2  \f0 y\f2  \f0 pixel\f2  \f0 in\f2  \f0 the\f2  \f0 ship's\f2  \f0 image\f2 .\f0\par
+\f2         \f0 The\f2  \f0 term\f2  (\f0 r\f2 _\f0 pos\f2 .\f0 y\f2  - \f0 s\f2 _\f0 pos\f2 .\f0 y\f2 ) \f0 is\f2  \f0 the\f2  \f0 difference\f2  \f0 in\f2  \f0 vertical\f2  \f0 position\f2  \f0 between\f2  \f0 the\f2  \f0 top\f2 -\f0 left\f2  \f0 corners\f2  \f0 of\f2  \f0 the\f2  \f0 rock\f2  \f0 and\f2  \f0 ship\f2 .\f0\par
+\f2         \f0 Adding\f2  \f0 this\f2  \f0 difference\f2  \f0 to\f2  \f0 y\f2  \f0 gives\f2  \f0 us\f2  \f0 the\f2  \f0 corresponding\f2  \f0 y\f2  \f0 pixel\f2  \f0 in\f2  \f0 the\f2  \f0 ship's\f2  \f0 local\f2  \f0 image\f2 .\f0\par
+\par
+The\f2  \f0 Goal\f2  \f0 of\f2  \f0 This\f2  \f0 Calculation\f2 :\f0\par
+\par
+\f2     \f0 The\f2  \f0 goal\f2  \f0 is\f2  \f0 to\f2  \f0 map\f2  \f0 the\f2  \f0 rock's\f2  \f0 pixel\f2  \f0 to\f2  \f0 the\f2  \f0 ship's\f2  \f0 pixel\f2 , \f0 so\f2  \f0 you\f2  \f0 can\f2  \f0 check\f2  \f0 if\f2  \f0 both\f2  \f0 images\f2  \f0 have\f2  \f0 non\f2 -\f0 transparent\f2  \f0 pixels\f2  \f0 at\f2  \f0 the\f2  \f0 same\f2  \f0 place\f2  \f0 on\f2  \f0 the\f2  \f0 screen\f2 .\f0\par
+\f2     \f0 If\f2  \f0 the\f2  \f0 rock\rquote s\f2  \f0 current\f2  \f0 pixel\f2  (\f0 r\f2 _\f0 local\f2 _\f0 x\f2 , \f0 r\f2 _\f0 local\f2 _\f0 y\f2 ) \f0 lines\f2  \f0 up\f2  \f0 with\f2  \f0 a\f2  \f0 pixel\f2  \f0 in\f2  \f0 the\f2  \f0 ship\f2  (\f0 s\f2 _\f0 local\f2 _\f0 x\f2 , \f0 s\f2 _\f0 local\f2 _\f0 y\f2 ), \f0 you\f2  \f0 can\f2  \f0 then\f2  \f0 check\f2  \f0 whether\f2  \f0 both\f2  \f0 pixels\f2  \f0 are\f2  \f0 non\f2 -\f0 transparent\f2  (\f0 i\f2 .\f0 e\f2 ., \f0 alpha\f2  > \f0 0\f2 ) \f0 to\f2  \f0 confirm\f2  \f0 a\f2  \f0 pixel\f2 -\f0 perfect\f2  \f0 collision\f2 .\f0\par
+\par
+Example\f2 :\f0\par
+\par
+Imagine\f2  \f0 the\f2  \f0 rock\f2  \f0 is\f2  \f0 at\f2  \f0 position\f2  (\f0 100\f2 , \f0 100\f2 ) \f0 on\f2  \f0 the\f2  \f0 screen\f2  \f0 and\f2  \f0 the\f2  \f0 ship\f2  \f0 is\f2  \f0 at\f2  (\f0 120\f2 , \f0 120\f2 ). \f0 The\f2  \f0 difference\f2  \f0 in\f2  \f0 position\f2  \f0 would\f2  \f0 be\f2 :\f0\par
+\par
+\f2     \f0 r\f2 _\f0 pos\f2 .\f0 x\f2  - \f0 s\f2 _\f0 pos\f2 .\f0 x\f2  = \f0 100\f2  - \f0 120\f2  = -\f0 20\par
+\f2     \f0 r\f2 _\f0 pos\f2 .\f0 y\f2  - \f0 s\f2 _\f0 pos\f2 .\f0 y\f2  = \f0 100\f2  - \f0 120\f2  = -\f0 20\par
+\par
+Now\f2 , \f0 let\rquote s\f2  \f0 say\f2  \f0 you\rquote re\f2  \f0 checking\f2  \f0 the\f2  \f0 pixel\f2  \f0 at\f2  (\f0 10\f2 , \f0 10\f2 ) \f0 in\f2  \f0 the\f2  \f0 rock\f2  \f0 image\f2  (\f0 which\f2  \f0 corresponds\f2  \f0 to\f2  \f0 a\f2  \f0 world\f2  \f0 position\f2  \f0 of\f2  (\f0 110\f2 , \f0 110\f2 )):\f0\par
+\par
+\f2     \f0 For\f2  \f0 the\f2  \f0 ship\f2  \f0 image\f2 , \f0 the\f2  \f0 corresponding\f2  \f0 pixel\f2  \f0 would\f2  \f0 be\f2 :\f0\par
+\f2         \f0 s\f2 _\f0 local\f2 _\f0 x\f2  = \f0 10\f2  + (-\f0 20\f2 ) = -\f0 10\par
+\f2         \f0 s\f2 _\f0 local\f2 _\f0 y\f2  = \f0 10\f2  + (-\f0 20\f2 ) = -\f0 10\par
+\par
+This\f2  \f0 means\f2  \f0 that\f2  \f0 for\f2  \f0 the\f2  \f0 pixel\f2  \f0 at\f2  (\f0 10\f2 , \f0 10\f2 ) \f0 in\f2  \f0 the\f2  \f0 rock\f2 , \f0 the\f2  \f0 corresponding\f2  \f0 pixel\f2  \f0 in\f2  \f0 the\f2  \f0 ship\f2  \f0 would\f2  \f0 be\f2  \f0 at\f2  (-\f0 10\f2 , -\f0 10\f2 ), \f0 which\f2  \f0 is\f2  \f0 outside\f2  \f0 the\f2  \f0 ship's\f2  \f0 image\f2  \f0 bounds\f2 , \f0 so\f2  \f0 no\f2  \f0 further\f2  \f0 checks\f2  \f0 would\f2  \f0 be\f2  \f0 performed\f2  \f0 in\f2  \f0 this\f2  \f0 case\f2 .\f0\par
+\par
+However\f2 , \f0 if\f2  \f0 the\f2  \f0 objects\f2  \f0 were\f2  \f0 close\f2  \f0 enough\f2 , \f0 this\f2  \f0 calculation\f2  \f0 would\f2  \f0 map\f2  \f0 the\f2  \f0 rock\rquote s\f2  \f0 pixel\f2  \f0 to\f2  \f0 a\f2  \f0 valid\f2  \f0 position\f2  \f0 in\f2  \f0 the\f2  \f0 ship\rquote s\f2  \f0 image\f2 , \f0 and\f2  \f0 you\rquote d\f2  \f0 then\f2  \f0 check\f2  \f0 for\f2  \f0 transparency\f2 .\f0\par
+In\f2  \f0 Summary\f2 :\f0\par
+\par
+\f2     \f0 r\f2 _\f0 local\f2 _\f0 x\f2  \f0 and\f2  \f0 r\f2 _\f0 local\f2 _\f0 y\f2 : \f0 Current\f2  \f0 pixel\f2  \f0 in\f2  \f0 the\f2  \f0 rock\f2  \f0 image\f2 .\f0\par
+\f2     \f0 s\f2 _\f0 local\f2 _\f0 x\f2  \f0 and\f2  \f0 s\f2 _\f0 local\f2 _\f0 y\f2 : \f0 Corresponding\f2  \f0 pixel\f2  \f0 in\f2  \f0 the\f2  \f0 ship\f2  \f0 image\f2  (\f0 calculated\f2  \f0 based\f2  \f0 on\f2  \f0 the\f2  \f0 relative\f2  \f0 positions\f2  \f0 of\f2  \f0 the\f2  \f0 two\f2  \f0 objects\f2  \f0 on\f2  \f0 the\f2  \f0 screen\f2 ).\f0\par
+\f2     \f0 The\f2  \f0 calculation\f2  \f0 ensures\f2  \f0 we\f2  \f0 check\f2  \f0 corresponding\f2  \f0 pixels\f2  \f0 from\f2  \f0 both\f2  \f0 images\f2  \f0 for\f2  \f0 potential\f2  \f0 pixel\f2 -\f0 perfect\f2  \f0 collisions\f2 .\par
+//////////////////////////////////////////////////////////////////////////////\par
+\f0\lang10\par
+}
+ 
